@@ -2,6 +2,7 @@ const moves = process.argv;
 let crypto = require("crypto");
 const prompt = require("prompt-sync")();
 let table = require("cli-table");
+
 class GAME {
   constructor() {
     let moves;
@@ -26,7 +27,6 @@ class GAME {
   }
 
   rounds(num, key) {
-    console.log("HMAC: " + key().toUpperCase());
     if (num > moves.length) {
       console.log(
         "There is no such option! Please, choose something less than " +
@@ -56,12 +56,12 @@ class GAME {
     for (let i = 0; i < reducedArr.length; i++) {
       if (i < reducedArr.length / 2 && reducedArr[i] == pc) {
         console.log("Winner is user");
-        console.log("HMAC: " + key().toUpperCase());
+        console.log("HMAC key : " + key);
         return;
       }
       if (i >= reducedArr.length / 2 && reducedArr[i] == pc) {
         console.log("Winner is pc");
-        console.log("HMAC: " + key().toUpperCase());
+        console.log("HMAC key: " + key);
         return;
       }
     }
@@ -69,7 +69,8 @@ class GAME {
   }
 }
 class Output {
-  menu(moves, rounds, key) {
+  menu(moves, validStatus) {
+    if (!validStatus) return;
     console.log("Avaible moves: ");
     for (let i = 0; i < moves.length; i++) {
       console.log(i + 1 + " - " + moves[i]);
@@ -92,13 +93,13 @@ class Output {
     }
     for (let i = 0; i < reducedArr.length; i++) {
       if (i < reducedArr.length / 2 && reducedArr[i] == t) {
-        return "Winner";
+        return "Win";
       }
       if (i >= reducedArr.length / 2 && reducedArr[i] == t) {
-        return "Loser";
+        return "Lose";
       }
     }
-    return "Draft!";
+    return "Draft";
   }
   help(moves) {
     console.table(
@@ -137,17 +138,18 @@ class Input {
     return this.moves;
   }
   validateInputs(a) {
-    if (a.length < 3) {
+    if (a.length - 2 < 3) {
       console.log("Вы должны вводить не меньше 3-ех аргументов");
       console.log("Пример: Камень Ножницы Бумага - 3 аргумента");
-      return;
+      return false;
     }
     if (a.length % 2 == 0) {
       console.log("Вы должны ввести нечетное количество аргументов");
       console.log("Пример: Камень Ножница Бумага, 3 нечетное число");
-      return;
+      return false;
     }
     this.setMoves(a);
+    return true;
   }
 }
 
@@ -155,14 +157,16 @@ class Hash {
   constructor() {
     let USER_HASH;
   }
-  recreateHash() {
+
+  createKey(moves) {
     return crypto
-      .createHmac("sha256", "secret")
-      .update("" + Math.random() * 10000)
-      .digest("hex");
+      .createHash("sha256")
+      .update("" + Math.random() * 1000)
+      .digest("hex")
+      .toUpperCase();
   }
-  printHash() {
-    console.log(this.USER_HASH);
+  createHMAC(key) {
+    return crypto.createHmac("sha256", key).digest("hex").toUpperCase();
   }
 }
 
@@ -170,22 +174,29 @@ let hash = new Hash();
 let game = new GAME();
 let inputs = new Input();
 let output = new Output();
-inputs.validateInputs(process.argv);
+let valid = inputs.validateInputs(process.argv);
 game.setMoves(inputs.moves);
-output.menu(inputs.moves);
-let choice = prompt("Enter your move: ");
-while (choice != 0) {
-  if (choice == "?") {
-    output.help(inputs.moves);
-    let helpChoice = prompt("");
-    if (helpChoice == 0) return;
+output.menu(inputs.moves, valid);
+if (valid) {
+  let key = hash.createKey();
+  console.log('HMAC: ', hash.createHMAC(key) );
+  let choice = prompt("Enter your move: ");
+  while (choice != 0) {
+    if (choice == "?") {
+      output.help(inputs.moves);
+      let helpChoice = prompt("");
+      if (helpChoice == 0) return;
+      else {
+        output.menu(inputs.moves, valid);
+        console.log('HMAC: ' ,hash.createHMAC(key));
+        key = hash.createKey();
+        choice = prompt("Enter your move");
+
+      }
+    }
+    game.rounds(choice, key);
+    output.menu(inputs.moves, valid);
+    choice = prompt("Enter your move: ");
   }
-  game.rounds(choice, hash.recreateHash);
-  output.menu(inputs.moves);
-  choice = prompt("Enter your move: ");
 }
 
-// game.rounds(prompt("Enter your move: "), hash.recreateHash);
-// game.getWinner("спек", inputs.moves, "ножницы");
-// console.log(inputs.getMoves());
-// inputs.rounds(prompt("Enter your move: "));
